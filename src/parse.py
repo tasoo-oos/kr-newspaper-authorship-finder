@@ -1,3 +1,5 @@
+from os import mkdir
+
 import pandas as pd
 import json
 from pathlib import Path
@@ -29,7 +31,11 @@ for json_path in dataset_path.iterdir():
         except:
             except_count +=1
 
+# 데이터프레임으로 변환
 df = pd.DataFrame(dic)
-df.to_csv('parsed_news.csv', encoding='utf-8-sig')
+
+# 저장
+Path('../dataset/preprocessed').mkdir(parents=True, exist_ok=True)
+df.to_csv('../dataset/preprocessed/parsed_news.csv', encoding='utf-8-sig', index_label='id')
 
 print('except_count:', except_count)
