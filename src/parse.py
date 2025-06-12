@@ -60,6 +60,6 @@ if __name__ == '__main__':
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / 'parsed_news.csv'
-    df.to_csv(output_path, index=False, encoding='utf-8-sig')
+    df.to_csv(output_path, encoding='utf-8-sig', index_label='id')
 
     print(f"Parsed dataset saved to: {output_path}")
