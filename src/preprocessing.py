@@ -1,6 +1,45 @@
 import pandas as pd
 from pathlib import Path
 import argparse
+import json
+
+
+def parse_news(dataset_path: Path) -> pd.DataFrame:
+    """
+    Parse the news dataset from JSON files into a CSV file.
+    :param dataset_path:
+    :return:
+    """
+
+    dic = {
+        'source':[],
+        'title':[],
+        'text':[]
+    }
+
+    except_count = 0
+
+    # 데이터 추출
+    for json_path in dataset_path.iterdir():
+        if json_path.suffix != '.json':
+            continue
+        with json_path.open('r', encoding='utf-8') as f:
+            try:
+                json_file = json.load(f)
+                for instance in json_file.get('data'):
+                    dic['source'].append(instance['doc_source'])
+                    dic['title'].append(instance['doc_title'])
+                    paragraph = instance['paragraphs']
+                    if len(paragraph) > 1:
+                        print('길이 2개 넘음!!')
+                        print(paragraph)
+                        print()
+                    dic['text'].append(paragraph[0].get('context',''))
+            except:
+                except_count +=1
+
+    df = pd.DataFrame(dic)
+    return df
 
 
 def preprocess_news(df: pd.DataFrame, min_length: int = 501, max_length: int = 1000) -> pd.DataFrame:
@@ -55,16 +94,31 @@ def randomize_and_sample_news(df: pd.DataFrame, sample_size: int = 100, seed: in
 
 if __name__ == '__main__':
     # 인자 파싱
-    parser = argparse.ArgumentParser(description='뉴스 기사 전처리')
+    parser = argparse.ArgumentParser(description='Parse news dataset from JSON files to CSV and filter.')
     parser.add_argument('--min-length', type=int, default=501, help='최소 기사 길이')
     parser.add_argument('--max-length', type=int, default=1000, help='최대 기사 길이')
-    parser.add_argument('--input-path', type=Path, default='../dataset/preprocessed/parsed_news.csv', help='입력 파일 경로')
+    parser.add_argument('--dataset-path', type=str, default="../dataset", help='Path to the dataset directory containing JSON files.')
+
     args = parser.parse_args()
 
-    input_path = Path(args.input_path)
-    sampled_file = input_path.parent / 'filtered_news.csv'
+    dataset_path = Path(args.dataset_path)
 
-    df = pd.read_csv(input_path, encoding='utf-8', index_col=0)
+    if not dataset_path.exists():
+        raise FileNotFoundError(f"The specified dataset path does not exist: {dataset_path}")
+
+    df = parse_news(dataset_path)
+
+    print(f"Total records parsed: {len(df)}")
+
+    output_dir = dataset_path / 'preprocessed'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    parsed_file = output_dir / 'parsed_news.csv'
+    df.to_csv(parsed_file, encoding='utf-8-sig', index_label='id')
+
+    print(f"Parsed raw dataset saved to: {parsed_file}")
+
+    sampled_file = output_dir / 'filtered_news.csv'
 
     filtered_df = preprocess_news(df, args.min_length, args.max_length)
     sampled_df = randomize_and_sample_news(filtered_df, sample_size=100, seed=42)
