@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
 import json
+import datetime
 
 
 # 불러오기
@@ -103,6 +104,7 @@ for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
         text1 = pair[0]['text'].replace('{','{{').replace('}','}}')
         title2 = pair[1]['title'].replace('{','{{').replace('}','}}')
         text2 = pair[1]['text'].replace('{','{{').replace('}','}}')
+
         messages = []
         messages.append({
             'role':'system',
@@ -113,8 +115,10 @@ for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
             'content':LIP.format(title1=title1, text1=text1, title2=title2, text2=text2)
         })
 
+        now_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
         json_list.append({
-            'custom_id':f'{kind}_source_pair_{custom_id_num:0>4}',
+            'custom_id':f'{kind}_source_pair_{now_datetime}_{custom_id_num:0>4}',
             'method':'POST',
             'url':'/v1/chat/completions',
             'body':{
