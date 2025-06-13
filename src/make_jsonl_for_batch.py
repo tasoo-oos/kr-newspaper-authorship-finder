@@ -114,7 +114,7 @@ for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
         json_list.append({
             'custom_id':f'{kind}_source_pair_{custom_id_num:0>4}',
             'method':'POST',
-            'url':'v1/chat/completions',
+            'url':'/v1/chat/completions',
             'body':{
                 'model':MODEL_NAME,
                 'messages':messages,
