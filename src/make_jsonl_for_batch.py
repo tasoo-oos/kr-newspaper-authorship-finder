@@ -135,6 +135,6 @@ save_path = Path('../dataset/preprocessed')
 file_name = 'batch.jsonl'
 with open((save_path / file_name), 'w', encoding='utf-8') as f:
     for js in json_list:
-        f.write(json.dumps(js)+'\n')
+        f.write(json.dumps(js, ensure_ascii=False)+'\n')
 
 print('\njsonl 파일 저장 완료.')
