@@ -22,7 +22,7 @@ SYSTEM_INSTRUCTION = """
 """.strip()
 
 LIP = """
-두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 주제와 내용의 차이는 무시하고 입력 텍스트의 문체를 분석하세요. 구동사, 조동사, 구두점, 희귀 단어, 접사, 수량 표현, 유머, 풍자, 오타, 철자 오류와 같은 언어학적 특징에 기반하여 추론하세요. 입력 텍스트 1: <{text1}>, 텍스트 2: <{text2}>
+두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 주제와 내용의 차이는 무시하고 입력 텍스트의 문체를 분석하세요. 구동사, 조동사, 구두점, 희귀 단어, 접사, 수량 표현, 유머, 풍자, 오타, 철자 오류와 같은 언어학적 특징에 기반하여 추론하세요. 입력 텍스트 1: <[{title1}] {text1}>, 텍스트 2: <[{title2}] {text2}>
 """.strip()
 
 
@@ -99,7 +99,9 @@ custom_id_num = 0
 json_list = []
 for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
     for pair in pair_list:
+        title1 = pair[0]['title'].replace('{','{{').replace('}','}}')
         text1 = pair[0]['text'].replace('{','{{').replace('}','}}')
+        title2 = pair[1]['title'].replace('{','{{').replace('}','}}')
         text2 = pair[1]['text'].replace('{','{{').replace('}','}}')
         messages = []
         messages.append({
@@ -108,7 +110,7 @@ for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
         })
         messages.append({
             'role':'user',
-            'content':LIP.format(text1=text1, text2=text2)
+            'content':LIP.format(title1=title1, text1=text1, title2=title2, text2=text2)
         })
 
         json_list.append({
