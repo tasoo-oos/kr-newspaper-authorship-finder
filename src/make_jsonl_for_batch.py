@@ -22,10 +22,23 @@ SYSTEM_INSTRUCTION = """
 "답변": 불리언(True/False) 답변.
 """.strip()
 
+NO_GUIDANCE = """
+두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 입력 텍스트 1: <[{title1}] {text1}>, 텍스트 2: <[{title2}] {text2}>
+""".strip()
+
+STYLE_GUIDANCE = """
+두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 주제와 내용의 차이는 무시하고 입력 텍스트의 문체를 분석하세요. 입력 텍스트 1: <[{title1}] {text1}>, 텍스트 2: <[{title2}] {text2}>
+""".strip()
+
+GRAMMER_GUIDANCE = """
+두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 저자성을 나타내는 문법적 스타일에 초점을 맞추세요. 입력 텍스트 1: <[{title1}] {text1}>, 텍스트 2: <[{title2}] {text2}>
+""".strip()
+
 LIP = """
 두 입력 텍스트가 동일한 저자에 의해 작성되었는지 검증하세요. 주제와 내용의 차이는 무시하고 입력 텍스트의 문체를 분석하세요. 구동사, 조동사, 구두점, 희귀 단어, 접사, 수량 표현, 유머, 풍자, 오타, 철자 오류와 같은 언어학적 특징에 기반하여 추론하세요. 입력 텍스트 1: <[{title1}] {text1}>, 텍스트 2: <[{title2}] {text2}>
 """.strip()
 
+PROMPT = LIP
 
 # 페어 생성 (같은 언론사 500개, 다른 언론사 500개)
 
@@ -112,7 +125,7 @@ for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
         })
         messages.append({
             'role':'user',
-            'content':LIP.format(title1=title1, text1=text1, title2=title2, text2=text2)
+            'content':PROMPT.format(title1=title1, text1=text1, title2=title2, text2=text2)
         })
 
         now_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
