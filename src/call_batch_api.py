@@ -116,9 +116,9 @@ def monitor_batch_job(batch_id):
                     d['pred_raw'].append(answer)
                     d['analysis_text'].append(analysis)
 
-                    if answer == 'True':
+                    if answer == True:
                         d['pred_label'].append('same')
-                    elif answer == 'False':
+                    elif answer == False:
                         d['pred_label'].append('diff')
                     else:
                         d['pred_label'].append('')
