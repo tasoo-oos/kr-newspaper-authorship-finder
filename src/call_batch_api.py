@@ -30,7 +30,19 @@ d = {
     'is_error': []
 }
 
-def create_batch_job():
+def create_batch_job(jsonl_path, sample_num=0):
+    # 샘플 처리
+    if sample_num > 0:
+        with jsonl_path.open('r', encoding='utf-8') as f:
+            content = f.read().strip().split('\n')
+        head = content[:sample_num]
+
+        sample_jsonl_path = jsonl_path.parent / 'sample_batch.jsonl'
+        with sample_jsonl_path.open('w', encoding='utf-8') as f:
+            for line in head:
+                f.write(line+'\n')
+        jsonl_path = sample_jsonl_path
+
     # 파일 업로드
     try:
         batch_input_file = client.files.create(
@@ -158,18 +170,27 @@ def main():
     while option not in ['0','1']:
         option = input(
             "모드 선택 (번호만 입력)\n"+
-            "0. BATCH API 호출 (최초 호출 시)\n"+
-            "1. BATCH API 현황 확인\n: "
+            "0. BATCH API 호출 (전체)\n"+
+            "1. BATCH API 호출 테스트 (샘플 n개)\n" +
+            "2. BATCH API 현황 확인\n: "
         )
         print('\n---\n')
 
     # BATCH API 호출
     if option == '0':
-        batch_id = create_batch_job()
+        batch_id = create_batch_job(jsonl_path)
+        monitor_batch_job(batch_id)
+
+    elif option == '1':
+        try:
+            sample_num = int(input('테스트할 샘플 개수 입력 (기본값 10): '))
+        except:
+            sample_num = 10
+        batch_id = create_batch_job(jsonl_path, sample_num=sample_num)
         monitor_batch_job(batch_id)
 
     # BATCH 실시간 현황 체크
-    elif option == '1':
+    elif option == '2':
         if not batch_id:
             batch_id = input('batch id를 입력해주세요.: ')
         monitor_batch_job(batch_id)
