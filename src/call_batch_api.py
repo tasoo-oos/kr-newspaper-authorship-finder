@@ -49,7 +49,7 @@ def create_batch_job(jsonl_path, sample_num=0):
             file=jsonl_path.open('rb'),
             purpose='batch'
         )
-        print(f'--- 파일 업로드 완료 (file id: {batch_input_file.id}')
+        print(f'--- 파일 업로드 완료 (file id: {batch_input_file.id})')
     except:
         print('파일 업로드 중 오류 발생')
         exit()
@@ -60,27 +60,27 @@ def create_batch_job(jsonl_path, sample_num=0):
         endpoint='/v1/chat/completions',
         completion_window='24h'
     )
-    print(f'--- 배치 업로드 완료 (batch id: {batch_job.id}')
+    print(f'--- 배치 업로드 완료 (batch id: {batch_job.id})')
     return batch_job.id
 
 def monitor_batch_job(batch_id):
     # 15초마다 현황 확인
     while True:
         batch_job = client.batches.retrieve(batch_id)
-        print('현재 상황:', batch_job.state)
-        if batch_job.state == 'completed':
+        print('현재 상황:', batch_job.status)
+        if batch_job.status == 'completed':
             print('-' * 50)
             print('배치 API 수행 완료')
             print('-' * 50)
             break
-        elif batch_job.state in ['failed', 'cancelled']:
+        elif batch_job.status in ['failed', 'cancelled']:
             print('-' * 50)
             print('배치 API 수행 중 오류 발생 (failed or cancelled)')
             print('-' * 50)
             exit()
         time.sleep(15)
 
-    if batch_job.state == 'completed':
+    if batch_job.status == 'completed':
         output_file_id = batch_job.output_file_id
         error_file_id = batch_job.error_file_id
         print('output_file_id:', output_file_id)
@@ -132,7 +132,7 @@ def monitor_batch_job(batch_id):
                     # 미리보기 출력 (앞 10개만)
                     if idx < 10:
                         print('-' * 50)
-                        print(f'[PREVIEW-{idx}/10]')
+                        print(f'[PREVIEW-{idx}]')
                         print('custom_id:', custom_id)
                         print('답변:', answer)
                         print('분석:', analysis)
