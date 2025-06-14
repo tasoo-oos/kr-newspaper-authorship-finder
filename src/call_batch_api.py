@@ -185,7 +185,7 @@ def main():
 
     # 모드 선택
     option = ''
-    while option not in ['0','1']:
+    while option not in ['0','1','2']:
         option = input(
             "모드 선택 (번호만 입력)\n"+
             "0. BATCH API 호출 (전체)\n"+
@@ -210,7 +210,7 @@ def main():
     # BATCH 실시간 현황 체크
     elif option == '2':
         if not batch_id:
-            batch_id = input('batch id를 입력해주세요.: ')
+            batch_id = input('batch id를 입력해주세요.: ').strip()
         monitor_batch_job(batch_id)
 
 if __name__ == '__main__':
