@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import json
 import time
+from sklearn.metrics import confusion_matrix, classification_report
 
 # API key 설정 필요
 # export OPENAI_API_KEY=""
@@ -29,6 +30,21 @@ d = {
     'analysis_text': [],  # text (모델 출력2)
     'is_error': []
 }
+
+def show_statistics(df, labels=['same','diff']):
+    print('[Confusion Matrix]')
+    print('labels:', labels)
+    cm = confusion_matrix(df['gold_label'], df['pred_label'], labels=labels)
+    cm_df = pd.DataFrame(cm)
+    cm_df.index = list(map(lambda x: 'true_'+x, labels))
+    cm_df.columns = list(map(lambda x: 'pred_'+x, labels))
+    cm_df['| sum'] = cm_df.sum(axis=1)
+    cm_df.loc['-- sum --'] = cm_df.sum(axis=0)
+    print(cm_df)
+    print('-'*50)
+    print('[Classification Report]')
+    print(classification_report(df['gold_label'], df['pred_label'], labels=labels))
+    print('-'*50)
 
 def create_batch_job(jsonl_path, sample_num=0):
     # 샘플 처리
@@ -156,6 +172,7 @@ def monitor_batch_job(batch_id):
             df = pd.DataFrame(d)
             df.to_csv(output_csv_path, encoding='utf-8-sig', index=False)
             print('-' * 50 + '\n')
+            show_statistics(df, ['same','diff'])
 
         if error_file_id:
             print('-' * 50)
