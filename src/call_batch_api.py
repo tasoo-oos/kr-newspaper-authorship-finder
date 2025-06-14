@@ -35,11 +35,12 @@ def create_batch_job(jsonl_path, sample_num=0):
     if sample_num > 0:
         with jsonl_path.open('r', encoding='utf-8') as f:
             content = f.read().strip().split('\n')
-        head = content[:sample_num]
+        head = content[:int(sample_num/2)] # same
+        tail = content[-int((sample_num+1)/2):] # diff
 
         sample_jsonl_path = jsonl_path.parent / 'sample_batch.jsonl'
         with sample_jsonl_path.open('w', encoding='utf-8') as f:
-            for line in head:
+            for line in head+tail:
                 f.write(line+'\n')
         jsonl_path = sample_jsonl_path
 
