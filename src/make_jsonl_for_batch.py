@@ -1,14 +1,13 @@
+from typing import Tuple
+
 import pandas as pd
 from pathlib import Path
 import json
 import datetime
 
+import argparse
 
-# 불러오기
-
-csv_path = Path('../dataset/preprocessed/filtered_news.csv')
-df = pd.read_csv(csv_path, encoding='utf-8')
-
+from sklearn.metrics import confusion_matrix
 
 # 상수 지정
 
@@ -67,118 +66,181 @@ TEST_PROMPT_V2 = """
 
 PROMPT = TEST_PROMPT_V2
 
-# 페어 생성 (같은 언론사 500개, 다른 언론사 500개)
+def create_pairs(df: pd.DataFrame) -> Tuple[list, list]:
+    """
+    주어진 DataFrame에서 같은 언론사와 다른 언론사끼리의 페어를 생성합니다.
+    :param df:
+        DataFrame, 'source', 'title', 'text' 컬럼을 포함해야 합니다.
+    :return:
+        Tuple, 같은 언론사끼리의 페어 리스트와 다른 언론사끼리의 페어 리스트를 포함합니다.
+    """
 
-same_pairs = [] # 같은 언론사로 짝지어진 페어들을 저장할 df 리스트
+    same_pairs = [] # 같은 언론사로 짝지어진 페어들을 저장할 df 리스트
 
-for source, member_df in df.groupby('source'):
-    shuffled_df = member_df.sample(frac=1, random_state=42).reset_index(drop=True) # 섞기
-    for idx in range(1, len(shuffled_df), 2):
-        same_pairs.append([shuffled_df.iloc[idx-1], shuffled_df.iloc[idx]]) # 연속한 두 행을 페어로 하여 추가
+    for source, member_df in df.groupby('source'):
+        shuffled_df = member_df.sample(frac=1, random_state=42).reset_index(drop=True) # 섞기
+        for idx in range(1, len(shuffled_df), 2):
+            same_pairs.append([shuffled_df.iloc[idx-1], shuffled_df.iloc[idx]]) # 연속한 두 행을 페어로 하여 추가
 
-diff_pairs = [] # 다른 언론사끼리 짝지어진 페어들을 저장할 df 리스트
+    diff_pairs = [] # 다른 언론사끼리 짝지어진 페어들을 저장할 df 리스트
 
-first_list = [] # 페어의 좌측에 올 후보 (각 언론사별로 1개의 원소(DF))
-second_list = [] # 페어의 우측에 올 후보 (각 언론사별로 1개의 원소(DF))
+    first_list = [] # 페어의 좌측에 올 후보 (각 언론사별로 1개의 원소(DF))
+    second_list = [] # 페어의 우측에 올 후보 (각 언론사별로 1개의 원소(DF))
 
-for source, member_df in df.groupby('source'):
-    shuffled_df = member_df.sample(frac=1, random_state=43) # 섞기
+    for source, member_df in df.groupby('source'):
+        shuffled_df = member_df.sample(frac=1, random_state=43) # 섞기
 
-    half_num = int(NEWS_NUMBER_PER_SOURCE/2) # 50개
-    first_list.append(shuffled_df.iloc[:half_num]) # 절반은 first_list
-    second_list.append(shuffled_df.iloc[half_num:]) # 절반은 second_list
-    # -> 각 언론사별로 균등하게 포함되도록 하기 위함
+        half_num = int(NEWS_NUMBER_PER_SOURCE/2) # 50개
+        first_list.append(shuffled_df.iloc[:half_num]) # 절반은 first_list
+        second_list.append(shuffled_df.iloc[half_num:]) # 절반은 second_list
+        # -> 각 언론사별로 균등하게 포함되도록 하기 위함
 
-remain_idx = [-1]*len(second_list)
-second_idx_start = 0 # 5씩 증가할 예정 (second_list의 각 원소 df들이 서로 겹치지 않게 매칭되도록 하기 위함)
-for i1, first_df in enumerate(first_list):
-    first_idx = 0 # first_df의 인덱스
-    for i2, second_df in enumerate(second_list):
-        if i1 == i2: continue
+    remain_idx = [-1]*len(second_list)
+    second_idx_start = 0 # 5씩 증가할 예정 (second_list의 각 원소 df들이 서로 겹치지 않게 매칭되도록 하기 위함)
+    for i1, first_df in enumerate(first_list):
+        first_idx = 0 # first_df의 인덱스
+        for i2, second_df in enumerate(second_list):
+            if i1 == i2: continue
 
-        for second_idx in range(second_idx_start, second_idx_start+5): # second_df의 인덱스
+            for second_idx in range(second_idx_start, second_idx_start+5): # second_df의 인덱스
+                first_row = first_df.iloc[first_idx]
+                second_row = second_df.iloc[second_idx]
+                diff_pairs.append([first_row, second_row])
+
+                first_idx += 1
+
+        for i2 in range(i1+1, i1+6):
+            i2 %= len(second_list)
+            second_df = second_list[i2]
             first_row = first_df.iloc[first_idx]
-            second_row = second_df.iloc[second_idx]
+            second_row = second_df.iloc[remain_idx[i2]]
             diff_pairs.append([first_row, second_row])
 
             first_idx += 1
+            remain_idx[i2] -= 1
 
-    for i2 in range(i1+1, i1+6):
-        i2 %= len(second_list)
-        second_df = second_list[i2]
-        first_row = first_df.iloc[first_idx]
-        second_row = second_df.iloc[remain_idx[i2]]
-        diff_pairs.append([first_row, second_row])
+        second_idx_start += 5
 
-        first_idx += 1
-        remain_idx[i2] -= 1
+    print('same_pairs: ', len(same_pairs))
+    print('diff_pairs: ', len(diff_pairs))
 
-    second_idx_start += 5
-
-print('same_pairs: ', len(same_pairs))
-print('diff_pairs: ', len(diff_pairs))
-
-# [검증 로직 추가]
-from collections import Counter
-
-pair_counts = Counter()
-for pair in diff_pairs:
-    source1 = pair[0]['source']
-    source2 = pair[1]['source']
-    # 순서에 상관없이 카운트하기 위해 (A,B)와 (B,A)를 동일하게 취급
-    sorted_pair = tuple(sorted((source1, source2)))
-    pair_counts[sorted_pair] += 1
-
-print("\n[언론사 조합별 페어 수 검증]")
-for pair, count in pair_counts.most_common():
-    print(f"{pair}: {count}개") # 가장 균등
+    return same_pairs, diff_pairs
 
 
-# jsonl 생성
+def validate_pairs(same_pairs: list, diff_pairs: list):
+    """
+    생성된 페어 리스트의 유효성을 검증합니다.
+    :param same_pairs: 같은 언론사끼리의 페어 리스트
+    :param diff_pairs: 다른 언론사끼리의 페어 리스트
+    :return:
+    """
 
-custom_id_num = 0
-json_list = []
-for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
-    for pair in pair_list:
-        title1 = pair[0]['title'].replace('{','{{').replace('}','}}')
-        text1 = pair[0]['text'].replace('{','{{').replace('}','}}')
-        title2 = pair[1]['title'].replace('{','{{').replace('}','}}')
-        text2 = pair[1]['text'].replace('{','{{').replace('}','}}')
+    news_per_source = set()
+    for pair in same_pairs + diff_pairs:
+        source1 = pair[0]['source']
+        source2 = pair[1]['source']
+        news_per_source.add(source1)
+        news_per_source.add(source2)
 
-        messages = []
-        messages.append({
-            'role':'system',
-            'content':SYSTEM_INSTRUCTION
-        })
-        messages.append({
-            'role':'user',
-            'content':PROMPT.format(title1=title1, text1=text1, title2=title2, text2=text2)
-        })
+    confusion_matrix = {}
+    for source1 in news_per_source:
+        confusion_matrix[source1] = {}
+        for source2 in news_per_source:
+            confusion_matrix[source1][source2] = 0
 
-        now_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    for pair in diff_pairs:
+        source1 = pair[0]['source']
+        source2 = pair[1]['source']
+        confusion_matrix[source1][source2] += 1
 
-        json_list.append({
-            'custom_id':f'{kind}_source_pair_{now_datetime}_{custom_id_num:0>4}',
-            'method':'POST',
-            'url':'/v1/chat/completions',
-            'body':{
-                'model':MODEL_NAME,
-                'messages':messages,
-                'response_format':{
-                    'type':'json_object'
-                },
-                'temperature':0.1
-            }
-        })
-        custom_id_num += 1
+    for pair in same_pairs:
+        source1 = pair[0]['source']
+        source2 = pair[1]['source']
+        confusion_matrix[source1][source2] += 1
+
+    print("\nConfusion Matrix for Different Source Pairs:")
+    print(" " * 8 + " | " + "| ".join([name[:2] for name in sorted(news_per_source)]))
+    print("-" * 60)
+    for source1 in sorted(news_per_source):
+        row = [source1[:4]]
+        for source2 in sorted(news_per_source):
+            row.append(str(confusion_matrix[source1][source2]).rjust(3))
+        print(" | ".join(row))
+    print("\nTotal pairs: ", len(same_pairs) + len(diff_pairs))
 
 
-# jsonl 저장
+def create_jsonl(same_pairs: list, diff_pairs: list, save_path: Path):
+    """
+    주어진 같은 언론사와 다른 언론사 페어 리스트를 기반으로 JSONL 형식의 요청을 생성합니다.
+    :param same_pairs:
+    :param diff_pairs:
+    :return:
+    """
+    custom_id_num = 0
+    json_list = []
+    for kind, pair_list in zip(['same', 'diff'], [same_pairs, diff_pairs]):
+        for pair in pair_list:
+            title1 = pair[0]['title'].replace('{','{{').replace('}','}}')
+            text1 = pair[0]['text'].replace('{','{{').replace('}','}}')
+            title2 = pair[1]['title'].replace('{','{{').replace('}','}}')
+            text2 = pair[1]['text'].replace('{','{{').replace('}','}}')
 
-save_path = Path('../dataset/preprocessed')
-file_name = 'batch.jsonl'
-with open((save_path / file_name), 'w', encoding='utf-8') as f:
-    for js in json_list:
-        f.write(json.dumps(js, ensure_ascii=False)+'\n')
+            messages = []
+            messages.append({
+                'role':'system',
+                'content':SYSTEM_INSTRUCTION
+            })
+            messages.append({
+                'role':'user',
+                'content':PROMPT.format(title1=title1, text1=text1, title2=title2, text2=text2)
+            })
 
-print('\njsonl 파일 저장 완료.')
+            now_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+            json_list.append({
+                'custom_id':f'{kind}_source_pair_{now_datetime}_{custom_id_num:0>4}',
+                'method':'POST',
+                'url':'/v1/chat/completions',
+                'body':{
+                    'model':MODEL_NAME,
+                    'messages':messages,
+                    'response_format':{
+                        'type':'json_object'
+                    },
+                    'temperature':0.1
+                }
+            })
+            custom_id_num += 1
+
+
+    # jsonl 저장
+    if not save_path.exists():
+        save_path.mkdir(parents=True, exist_ok=True)
+    file_name = 'batch.jsonl'
+    with open((save_path / file_name), 'w', encoding='utf-8') as f:
+        for js in json_list:
+            f.write(json.dumps(js, ensure_ascii=False)+'\n')
+
+    print('\njsonl 파일 저장 완료.')
+
+
+if __name__ == '__main__':
+    # 인자 파싱
+    parser = argparse.ArgumentParser(description='Create JSONL file for batch processing.')
+    parser.add_argument('--csv-path', type=str, default="../dataset/preprocessed/filtered_news.csv", help='Path to the CSV file containing news data.')
+    parser.add_argument('--save-path', type=str, default="../dataset/batch", help='Path to save the generated JSONL file.')
+    args = parser.parse_args()
+
+    csv_path = Path(args.csv_path)
+    save_path = Path(args.save_path)
+
+    df = pd.read_csv(csv_path, encoding='utf-8')
+
+    # 페어 생성
+    same_pairs, diff_pairs = create_pairs(df)
+
+    # 페어 검증
+    validate_pairs(same_pairs, diff_pairs)
+
+    # JSONL 파일 생성
+    create_jsonl(same_pairs, diff_pairs, save_path)
