@@ -1,2 +1,7 @@
 dataset/
 .DS_Store
+
+uv.lock
+.venv/
+pyproject.toml
+.python-version

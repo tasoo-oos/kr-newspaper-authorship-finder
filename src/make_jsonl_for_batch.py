@@ -15,10 +15,22 @@ NEWS_NUMBER_PER_SOURCE = 100 # 한 언론사당 100개 기사 (총 10개 언론�
 
 MODEL_NAME = 'gpt-4.1-2025-04-14'
 
-SYSTEM_INSTRUCTION = """
+SYSTEM_INSTRUCTION_V1 = """
 다음 두 가지 key elements를 포함하는 JSON 객체로 응답하세요:
 "분석": 답변에 대한 근거가 되는 추론 과정.
 "답변": 불리언(True/False) 답변.
+"""
+
+SYSTEM_INSTRUCTION_V2 = """
+당신은 뉴스 기사의 저자성을 검증하는 AI입니다. 주어진 두 뉴스 기사가 동일한 언론사에 의해 작성되었는지 판단해야 합니다.
+
+다음 지침을 기반으로, 두 언론 기사가 동일한 언론사에 의해 작성되었는지 검증하세요.
+- 기사의 주제(예: 정치, 연예, 경제)나 내용에 따른 자연스러운 문체 차이는 무시하세요.
+- 대신, 주제와 상관없이 일관되게 나타나는 언론사 특유의 문체 및 형식적 특징 등의 '편집 스타일'에 집중하세요.
+
+다음 두 가지 key elements를 포함하는 JSON 객체로 응답하세요:
+"분석": 답변에 대한 근거가 되는 추론 과정.
+"답변": 두 뉴스 기사가 동일한 언론사에 의해 작성되었는지에 대한 불리언(True/False) 답변.
 """.strip()
 
 NO_GUIDANCE = """
@@ -64,7 +76,23 @@ TEST_PROMPT_V2 = """
 기사 텍스트 2: <[{title2}] {text2}>
 """
 
-PROMPT = TEST_PROMPT_V2
+TEST_PROMPT_V3 = """
+## 기사 텍스트 1: {title1}
+
+```txt
+{text1}
+```
+
+
+## 기사 텍스트 2: {title2}
+
+```txt 
+{text2}
+```
+""".strip()
+
+SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION_V2
+PROMPT = TEST_PROMPT_V3
 
 def create_pairs(df: pd.DataFrame) -> Tuple[list, list]:
     """

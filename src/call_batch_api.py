@@ -31,7 +31,10 @@ d = {
     'is_error': []
 }
 
-def show_statistics(df, labels=['same','diff']):
+def show_statistics(df, labels=None):
+    if labels is None:
+        labels = ['same', 'diff']
+
     print('[Confusion Matrix]')
     print('labels:', labels)
     cm = confusion_matrix(df['gold_label'], df['pred_label'], labels=labels)
