@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import json
 import time
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, matthews_corrcoef
 
 # API key 설정 필요
 # export OPENAI_API_KEY=""
@@ -31,7 +31,37 @@ d = {
     'is_error': []
 }
 
+def input_batch_id(client, limit=10):
+    # batch list 불러오기
+    batch_list = list(client.batches.list(limit=limit))
+
+    if not batch_list:
+        print('-' * 30)
+        print('BATCH API 호출 기록이 없습니다. 새로운 BATCH API를 호출해주세요.')
+        print('-' * 30)
+        batch_id = input('batch id를 입력해주세요.: ').strip()
+    else:
+        print('-'*30, '(1번이 최신)')
+        for idx, batch in enumerate(batch_list, start=1):
+            try:
+                request_counts = batch.request_counts.total
+            except:
+                request_counts = '?'
+            print(f'{idx}. {batch.id} ({request_counts} requests)')
+        print('-' * 30)
+        batch_id_input = input('batch id 또는 번호를 입력해주세요.: ').strip()
+        if batch_id_input in list(map(str,range(1,len(batch_list)+1))):
+            batch_idx = int(batch_id_input)-1
+            batch_id = batch_list[batch_idx].id
+        else:
+            batch_id = batch_id_input
+
+    return batch_id
+
 def show_statistics(df, labels=['same','diff']):
+    print(f'*에러가 아닌 케이스만 통계로 수집 (error case: {len(df[df['is_error']])})\n')
+    df = df[~df['is_error']]
+
     print('[Confusion Matrix]')
     print('labels:', labels)
     cm = confusion_matrix(df['gold_label'], df['pred_label'], labels=labels)
@@ -45,6 +75,8 @@ def show_statistics(df, labels=['same','diff']):
     print('[Classification Report]')
     print(classification_report(df['gold_label'], df['pred_label'], labels=labels))
     print('-'*50)
+    print('[MCC]')
+    print(':', matthews_corrcoef(df['gold_label'], df['pred_label']))
 
 def create_batch_job(jsonl_path, sample_num=0):
     # 샘플 처리
@@ -83,7 +115,10 @@ def create_batch_job(jsonl_path, sample_num=0):
 def monitor_batch_job(batch_id):
     # 15초마다 현황 확인
     while True:
-        batch_job = client.batches.retrieve(batch_id)
+        try: batch_job = client.batches.retrieve(batch_id)
+        except:
+            print('잘못된 batch id입니다.')
+            return
         print('현재 상황:', batch_job.status)
         if batch_job.status == 'completed':
             print('-' * 50)
@@ -110,19 +145,29 @@ def monitor_batch_job(batch_id):
 
             # 파일로 저장 - jsonl
             with output_jsonl_path.open('w', encoding='utf-8') as f:
-                f.write(output_file_content)
+                for line in output_file_content.strip().split('\n'):
+                    f.write(json.dumps(json.loads(line), ensure_ascii=False)+'\n')
             print('output file 저장 :', str(output_jsonl_path))
 
             # 파일로 저장 - csv
             output_json_list = output_file_content.strip().split('\n')  # 빈 줄 제거
             for idx, line in enumerate(output_json_list):
+                is_error = False
                 line = json.loads(line)
                 custom_id = line.get('custom_id')
                 gold_label = custom_id.split('_')[0]  # 'same' or 'diff'
                 response_body = line.get('response', {}).get('body', {})
                 if response_body and 'choices' in response_body:
-                    response_json = response_body.get('choices', [])[0].get('message', {}).get('content', '')
-                    response_json = json.loads(response_json)
+                    response_json_str = response_body.get('choices', [])[0].get('message', {}).get('content', '')
+                    try:
+                        response_json = json.loads(response_json_str)
+                    except json.decoder.JSONDecodeError as e:
+                        print(f'모델이 답변한 JSON 파싱 중 오류 발생: {e}')
+                        print('v'*30)
+                        print(response_body.get('choices', [])[0].get('message', {}).get('content', ''))
+                        print('^'*30)
+                        response_json = {}
+                        is_error = True
                     analysis = response_json.get('분석', '')
                     answer = response_json.get('답변', '')
 
@@ -138,13 +183,14 @@ def monitor_batch_job(batch_id):
                         d['pred_label'].append('diff')
                     else:
                         d['pred_label'].append('')
+                        is_error = True
 
                     if d['gold_label'][-1] == d['pred_label'][-1]:
                         d['is_success'].append(True)
                     else:
                         d['is_success'].append(False)
 
-                    d['is_error'].append(False)
+                    d['is_error'].append(is_error)
 
                     # 미리보기 출력 (앞 10개만)
                     if idx < 10:
@@ -210,7 +256,8 @@ def main():
     # BATCH 실시간 현황 체크
     elif option == '2':
         if not batch_id:
-            batch_id = input('batch id를 입력해주세요.: ').strip()
+            batch_id = input_batch_id(client)
+            if not batch_id: return
         monitor_batch_job(batch_id)
 
 if __name__ == '__main__':

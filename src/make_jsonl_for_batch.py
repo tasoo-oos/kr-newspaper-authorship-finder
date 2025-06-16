@@ -207,7 +207,8 @@ def create_jsonl(same_pairs: list, diff_pairs: list, save_path: Path):
                     'response_format':{
                         'type':'json_object'
                     },
-                    'temperature':0.1
+                    'temperature':0.1,
+                    'max_tokens':1024
                 }
             })
             custom_id_num += 1
